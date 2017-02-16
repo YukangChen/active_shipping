@@ -8,7 +8,7 @@ module ActiveShipping #:nodoc:
     # Package.new(100.grams, [10, 20, 30].map(&:centimetres))
     def initialize(grams_or_ounces, dimensions, options = {})
       options = @@default_options.update(options) if @@default_options
-      options.symbolize_keys!
+      options = options.symbolize_keys
       @options = options
 
       @dimensions = [dimensions].flatten.reject(&:nil?)
@@ -130,6 +130,14 @@ module ActiveShipping #:nodoc:
       end
     end
 
+    def get_attr name
+      if self.respond_to?(name.to_sym)
+        self.send(name.to_sym)
+      else
+        @options[name.to_sym]
+      end
+    end
+    
     private
 
     def attribute_from_metric_or_imperial(obj, klass, unit_system, metric_unit, imperial_unit)
@@ -164,5 +172,7 @@ module ActiveShipping #:nodoc:
         @dimensions.unshift(@dimensions[0])
       end
     end
+
+    
   end
 end
