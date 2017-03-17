@@ -463,6 +463,15 @@ module ActiveShipping
             end
 
             xml.ShipmentServiceOptions do
+              if options[:notification_email]
+                xml.Notification do
+                  xml.NotificationCode("2")
+                  xml.EMailMessage do
+                    xml.EMailAddress(options[:notification_email])
+                  end
+                end
+              end
+              
               if delivery_confirmation = options[:delivery_confirmation]
                 xml.DeliveryConfirmation do
                   xml.DCISType(SHIPMENT_DELIVERY_CONFIRMATION_CODES[delivery_confirmation])
@@ -472,6 +481,27 @@ module ActiveShipping
               if options[:international]
                 build_international_forms(xml, origin, destination, packages, options)
               end
+
+              if label_delivery_email = options[:label_delivery_email]
+                xml.LabelDelivery do
+                  xml.EMail do
+                    xml.EMailAddress(label_delivery_email)
+                    
+                    if undeliverable_email = options[:undeliverable_email_address]
+                      xml.UndeliverableEMailAddress(undeliverable_email)
+                    end
+
+                    if from_email = options[:label_from_email]
+                      xml.FromEMailAddress(from_email)
+                    end
+
+                    if from_name = options[:label_from_name]
+                      xml.FromName(from_name)
+                    end
+                  end
+                end
+              end
+              
             end
 
             # A request may specify multiple packages.
@@ -505,7 +535,9 @@ module ActiveShipping
           end
         end
       end
-      xml_builder.to_xml
+      res = xml_builder.to_xml
+      puts "debug now: \n #{res}" if !Rails.env.test?
+      res
     end
 
     def build_delivery_dates_request(origin, destination, packages, pickup_date, options={})
@@ -747,7 +779,7 @@ module ActiveShipping
             end
           end
 
-          if package_value = package.options[:insured_value]
+          if package_value = package.options[:insured_value] || package.value
             xml.InsuredValue do
               xml.CurrencyCode(package.options[:currency] || 'USD')
               xml.MonetaryValue(package_value.to_f)
@@ -1019,7 +1051,8 @@ module ActiveShipping
       packages = response_info["ShipmentResults"]["PackageResults"]
       packages = [packages] if Hash === packages
       labels = packages.map do |package|
-        Label.new(package["TrackingNumber"], Base64.decode64(package["LabelImage"]["GraphicImage"]))
+        image = package["LabelImage"].present? ? Base64.decode64(package["LabelImage"]["GraphicImage"]) : ""
+        Label.new(package["TrackingNumber"], image)
       end
 
       LabelResponse.new(success, message, response_info, {labels: labels})
@@ -1067,8 +1100,7 @@ module ActiveShipping
     def handle_package_level_delivery_confirmation(origin, destination, packages, options)
       packages.each do |package|
         # Transfer shipment-level option to package with no specified delivery_confirmation
-        package.options[:delivery_confirmation] = options[:delivery_confirmation] unless package.options[:delivery_confirmation]
-
+        package.options[:delivery_confirmation] = options[:delivery_confirmation] unless package.options[:delivery_confirmation]        
         # Assert that option is valid
         if package.options[:delivery_confirmation] && !PACKAGE_DELIVERY_CONFIRMATION_CODES[package.options[:delivery_confirmation]]
           raise "Invalid delivery_confirmation option on package: '#{package.options[:delivery_confirmation]}'. Use a key from PACKAGE_DELIVERY_CONFIRMATION_CODES"
