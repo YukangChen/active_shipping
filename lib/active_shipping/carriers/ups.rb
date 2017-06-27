@@ -1047,7 +1047,12 @@ module ActiveShipping
       message = response_message(xml)
 
       response_info = Hash.from_xml(response).values.first
-      packages = response_info["ShipmentResults"]["PackageResults"]
+      packages = nil
+      if response_info["ShipmentResults"].present?
+        packages =  response_info["ShipmentResults"]["PackageResults"]
+      else
+        raise response_info["Response"]["Error"]["ErrorDescription"]
+      end
       packages = [packages] if Hash === packages
       labels = packages.map do |package|
         image = package["LabelImage"].present? ? Base64.decode64(package["LabelImage"]["GraphicImage"]) : ""
