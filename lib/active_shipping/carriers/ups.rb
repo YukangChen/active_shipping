@@ -192,7 +192,10 @@ module ActiveShipping
       xml = parse_ship_confirm(confirm_response)
       success = response_success?(xml)
       message = response_message(xml)
+      return parse_ups_check(xml) if options[:ups_check]
       raise ActiveShipping::ResponseContentError, StandardError.new(message) unless success
+      
+      
       digest  = response_digest(xml)
 
       # STEP 2: Accept. Use shipment digest in first response to get the actual label.
@@ -1041,6 +1044,12 @@ module ActiveShipping
       build_document(response, 'ShipmentConfirmResponse')
     end
 
+    def parse_ups_check(xml)
+      success = response_success?(xml)
+      message = response_message(xml)
+      return Response.new(success, message, {}, { labels: [], ups_check: true } )
+    end
+    
     def parse_ship_accept(response)
       xml     = build_document(response, 'ShipmentAcceptResponse')
       success = response_success?(xml)
