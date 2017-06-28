@@ -7,6 +7,7 @@ module ActiveShipping #:nodoc:
     attr_reader :test
     attr_reader :xml
     attr_reader :request
+    attr_reader :ups_check
 
     # @param success [Boolean] Whether the request was considered successful, i.e. this
     #   response object will have the expected data set.
@@ -22,6 +23,7 @@ module ActiveShipping #:nodoc:
     def initialize(success, message, params = {}, options = {})
       @success, @message, @params = success, message, params.stringify_keys
       @test = options[:test] || false
+      @ups_check = options[:ups_check] || false
       @xml = options[:xml]
       @request = options[:request]
       raise ResponseError.new(self) unless success || options[:allow_failure]
@@ -34,6 +36,13 @@ module ActiveShipping #:nodoc:
       @success ? true : false
     end
 
+    # Whether this request was the result of ups check,
+    # if true, means that we do not expect response contains labels info
+    # @return [Boolean]
+    def ups_check?
+      @ups_check ? true : false
+    end
+    
     # Whether this request was executed against the sandbox or test environment instead of
     # the production environment of the carrier.
     # @return [Boolean]
